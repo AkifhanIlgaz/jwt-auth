@@ -1,28 +1,19 @@
 package main
 
 import (
+	"github.com/AkifhanIlgaz/jwt-auth/config"
 	"github.com/AkifhanIlgaz/jwt-auth/handler"
-	jwtware "github.com/gofiber/contrib/jwt"
+	"github.com/AkifhanIlgaz/jwt-auth/middlewares"
 	"github.com/gofiber/fiber/v2"
 )
-
-var h handler.Handler
 
 func main() {
 	app := fiber.New()
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusOK).JSON("Hello World")
-	})
+	jwt := middlewares.NewAuthMiddleware(config.Secret)
 
-	app.Post("/login", h.Login)
+	app.Post("/login", handler.Login)
+	app.Get("/protected", jwt, handler.Protected)
 
-	app.Use(jwtware.New(jwtware.Config{
-		SigningKey: jwtware.SigningKey{Key: []byte("secret")},
-	}))
-
-	app.Get("/private", h.Private)
-
-	app.Server().Logger.Printf("%v", app.Listen(":1323"))
-
+	app.Listen(":3000")
 }

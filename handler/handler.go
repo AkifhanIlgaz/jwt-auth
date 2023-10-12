@@ -1,45 +1,61 @@
 package handler
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/AkifhanIlgaz/jwt-auth/config"
+	"github.com/AkifhanIlgaz/jwt-auth/models"
+	"github.com/AkifhanIlgaz/jwt-auth/repository"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type Handler struct {
-}
-
-func (h *Handler) Login(c *fiber.Ctx) error {
-	username := c.FormValue("username")
-	password := c.FormValue("password")
-
-	// TODO: Check if the user exists
-	if username == "jon" && password == "password" {
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"name":  "Jon Doe",
-			"admin": true,
-			"exp":   time.Now().Add(72 * time.Hour).Unix(),
-		})
-
-		t, err := token.SignedString([]byte("secret"))
-		if err != nil {
-			return err
-		}
-
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"token": t,
+// Login route
+func Login(c *fiber.Ctx) error {
+	// Extract the credentials from the request body
+	var loginRequest models.LoginRequest
+	if err := c.BodyParser(&loginRequest); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 
-	return c.SendStatus(fiber.StatusUnauthorized)
+	// Find the user by credentials
+	user, err := repository.FindByCredentials(loginRequest.Email, loginRequest.Password)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	day := 24 * time.Hour
+	claims := jwt.MapClaims{
+		"ID":    user.ID,
+		"email": user.Email,
+		"fav":   user.FavoritePhrase,
+		"exp":   time.Now().Add(day * 1).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	t, err := token.SignedString([]byte(config.Secret))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(models.LoginResponse{
+		Token: t,
+	})
+
 }
 
-func (h *Handler) Private(c *fiber.Ctx) error {
+func Protected(c *fiber.Ctx) error {
+	// Get the user from the context and return it
 	user := c.Locals("user").(*jwt.Token)
-	fmt.Println(user)
 	claims := user.Claims.(jwt.MapClaims)
-	name := claims["name"].(string)
-	return c.SendString("Welcome " + name)
+	email := claims["email"].(string)
+	favPhrase := claims["fav"].(string)
+	return c.SendString("Welcome 👋" + email + " " + favPhrase)
 }
