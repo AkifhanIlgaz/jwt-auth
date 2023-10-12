@@ -1,19 +1,16 @@
 package main
 
 import (
-	"github.com/AkifhanIlgaz/jwt-auth/config"
-	"github.com/AkifhanIlgaz/jwt-auth/handler"
-	"github.com/AkifhanIlgaz/jwt-auth/middlewares"
-	"github.com/gofiber/fiber/v2"
+	"net/http"
+
+	"github.com/AkifhanIlgaz/jwt-auth/handlers"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	app := fiber.New()
+	r := chi.NewRouter()
 
-	jwt := middlewares.NewAuthMiddleware(config.Secret)
+	r.Post("/api/auth/login", handlers.Login)
 
-	app.Post("/login", handler.Login)
-	app.Get("/protected", jwt, handler.Protected)
-
-	app.Listen(":3000")
+	http.ListenAndServe(":3000", r)
 }
